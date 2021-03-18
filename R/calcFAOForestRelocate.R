@@ -10,7 +10,6 @@
 #' \item "seven" separates primary and secondary forest and includes "crop", "past", "forestry", "primforest", "secdforest", "urban" and "other"
 #' \item "nine" adds the separation of pasture and rangelands, as well as a differentiation of primary and secondary non-forest vegetation and therefore returns "crop", "past", "range", "forestry", "primforest", "secdforest", "urban", "primother" and "secdother"
 #' }
-#' @param track if intermediate results shoul be printed
 #' @param cells    if cellular is TRUE: "magpiecell" for 59199 cells or "lpjcell" for 67420 cells
 #' @return List of magpie object with results on cellular level, weight on cellular level, unit and description.
 #' @author Kristine Karstens, Felicitas Beier, Patrick v. Jeetze
@@ -25,7 +24,7 @@
 #' @importFrom nleqslv nleqslv
 #' @export
 
-calcFAOForestRelocate <- function(selectyears = "past", nclasses = "seven", track = TRUE, cells = "magpiecell") {
+calcFAOForestRelocate <- function(selectyears = "past", nclasses = "seven", cells = "magpiecell") {
 
   # Load cellular and country data
   countrydata <- calcOutput("LanduseInitialisation", aggregate = FALSE, nclasses = "seven", fao_corr = TRUE, selectyears = selectyears, cellular = FALSE)
@@ -62,8 +61,15 @@ calcFAOForestRelocate <- function(selectyears = "past", nclasses = "seven", trac
 
   # grep land areas dependent on vegetation carbon density
   if (is.null(getYears(cellvegc))) getYears(cellvegc) <- getYears(countrydata)
-  cellvegc_n <- cellvegc
 
+  # normalized vegetation carbon (with small correction to ensure values between [0,1))
+  .calcMax <- function(x) {
+    x <- as.data.table(as.data.frame(x))
+    y <- merge(x[,-5],x[,max(Value), by = Region:Year])
+    return(as.magpie(y,tidy=TRUE, spatial=c(1,3)))
+  }
+  cellvegc_n <- cellvegc/(setNames(.calcMax(cellvegc),NULL) + 10^-10)
+  
   # weight function to determine correct cellweights for area removal
   findweight <- function(p, cellarea, isoreduction, cellweight) {
     dimSums(cellarea * (1 - (1 - cellweight)^p), dim = 1) + isoreduction + 10^-10
@@ -73,10 +79,6 @@ calcFAOForestRelocate <- function(selectyears = "past", nclasses = "seven", trac
   for (iso in countries) {
     for (t in getYears(countrydata)) {
 
-      # normalized vegetation carbon (with small correction to ensure values between [0,1))
-      cellvegc_n[iso, t, ] <- cellvegc[iso, t, ] / (setNames(max(cellvegc[iso, t, ]), NULL) + 10^-10)
-
-      if (track) print(paste0("### START REALLOCATION of: ", iso, " ", t))
       ###########################
       ### Reduction procedure ###
       ###########################
@@ -98,13 +100,11 @@ calcFAOForestRelocate <- function(selectyears = "past", nclasses = "seven", trac
           if (length(getCells(LUH2v2_init[iso, t, cat])) == 1) {
             # trivial case of one cell countries
             remove <- -setCells(reduce[iso, t, cat], nm = "GLO")
-            if (track) print(paste0("Remove ", remove, " Mha from ", cat, " for one cell country."))
           } else {
             # determine correct parameter for weights for multiple cell countries (weights below zero indicate an error)
             p <- nleqslv(1, findweight, cellarea = LUH2v2_init[iso, t, cat], isoreduction = reduce[iso, t, cat], cellweight = cellweight)$x
             if (p < 0) stop(verbosity = 2, paste0("Negative weight of p=", p, " for: ", cat, " ", iso, " ", t))
             remove <- LUH2v2_init[iso, t, cat] * (1 - (1 - cellweight)^p)
-            if (track) print(paste0("Remove ", dimSums(remove, dim = 1), " Mha from ", cat, " with p = ", p))
           }
 
           # remove area from cells and put to "to_be_allocated" area
@@ -128,13 +128,11 @@ calcFAOForestRelocate <- function(selectyears = "past", nclasses = "seven", trac
         if (length(getCells(LUH2v2_init[iso, t, "other"])) == 1) {
           # trivial case of one cell countries
           add <- setCells(increase[iso, t, cat], nm = "GLO")
-          if (track) print(paste0("Add ", add, " Mha to other for one cell country."))
         } else {
           # determine correct parameter for weights for multiple cell countries (weights below zero indicate an error)
           p <- nleqslv(1, findweight, cellarea = LUH2v2_init[iso, t, "to_be_allocated"], isoreduction = -increase[iso, t, "other"], cellweight = cellweight)$x
           if (p < 0) stop(verbosity = 2, paste0("Negative weight of p=", p, " for: ", cat, " ", iso, " ", t))
           add <- LUH2v2_init[iso, t, "to_be_allocated"] * (1 - (1 - cellweight)^p)
-          if (track) print(paste0("Add ", dimSums(add, dim = 1), " Mha to other with p = ", p))
         }
 
         # move area from "to_be_allocated" area to other land
@@ -150,7 +148,6 @@ calcFAOForestRelocate <- function(selectyears = "past", nclasses = "seven", trac
         # move area from "to_be_allocated" area to forests
         forests_share <- increase[iso, t, forests] / setNames(dimSums(increase[iso, t, forests], dim = 3), NULL)
         LUH2v2_init[iso, t, forests] <- LUH2v2_init[iso, t, forests] + setCells(forests_share, "GLO") * setNames(LUH2v2_init[iso, t, "to_be_allocated"], NULL)
-        if (track) print(paste0("Add ", dimSums(LUH2v2_init[iso, t, "to_be_allocated"], dim = 1), " Mha to forest areas."))
 
         LUH2v2_init[iso, t, "to_be_allocated"] <- 0
         increase[iso, t, ] <- 0
@@ -162,9 +159,7 @@ calcFAOForestRelocate <- function(selectyears = "past", nclasses = "seven", trac
 
       if (!all(round(dimSums(LUH2v2_init[iso, t, landuse], dim = 1), 3) == round(countrydata[iso, t, landuse], 3))) {
         warning(paste0("Missmatch in data for in ", iso, " ", t))
-      } else if (track) {
-        print(paste0("### DONE REALLOCATION of: ", iso, " ", t))
-      }
+      } 
     }
   }
 

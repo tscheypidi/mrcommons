@@ -52,7 +52,6 @@ convertSSPResults<- function(x){
   weight <- setYears(dimSums(calcOutput("LanduseInitialisation",aggregate = FALSE),dim=3)[,2010,],NULL) #use land area as weight
   
   for (sel in selection) {
-    print(sel)
     data <- x[,,sel]
     #weight is needed here. Otherwise all countries belonging to a region get the same value!
     #please replace pop_past with a proper weigt. For instance area.

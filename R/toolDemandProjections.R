@@ -313,8 +313,7 @@ toolDemandProjections<-function(
     return(out)
   }
   
-  message(paste0("Beginn processing the scenario ",
-                 scenario_name,"..."))
+  vcat(2, "Beginn processing the scenario ", scenario_name, "...")
   
   country<-NULL
   
@@ -347,8 +346,7 @@ toolDemandProjections<-function(
   country[is.infinite(country)] <- 0
   country_weight[is.infinite(country_weight)] <- 0
   
-  message(paste0("Finished processing the scenario ",
-                 scenario_name,"."))
+  vcat(2, "Finished processing the scenario ", scenario_name,".")
   
   return(list(x=country,weight=country_weight))
 }

@@ -44,7 +44,7 @@ convertUN_PopDiv <- function(x) {
   missing_iso3c <- setdiff(target_iso3c, unique(x_have$iso3c))
   
   # notify about missing countries
-  message('Population data for the following countries is not available and',
+  vcat(1, 'Population data for the following countries is not available and',
           'therefore set to 0:\n',
           paste(countrycode(missing_iso3c, 'iso3c', 'country.name'), 
                 collapse = ', '))

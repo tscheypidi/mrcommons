@@ -57,8 +57,8 @@ readFRA2020 <- function(subtype){
       }
     }
     
-    if(missing_data>0) message(missing_data," missing data points."," Such data will be set to 0.")
-    if(partial_data>0) message(partial_data," partial data points."," Such data will be set to mean value of reported data.")
+    if(missing_data>0) vcat(1,missing_data," missing data points."," Such data will be set to 0.")
+    if(partial_data>0) vcat(1,partial_data," partial data points."," Such data will be set to mean value of reported data.")
     
     # Replace X in colnames with y to make sure as.magpie recognizes this column as temporal dimension later
     colnames(data) <- gsub(pattern = "X",replacement = "y",x = colnames(data))
@@ -157,8 +157,8 @@ readFRA2020 <- function(subtype){
         partial_data <- partial_data
       }
     }
-    if(missing_data>0) message(missing_data," missing data points."," Such data will be set to 0.")
-    if(partial_data>0) message(partial_data," partial data points."," Such data will be set to mean value of reported data.")
+    if(missing_data>0) vcat(1,missing_data," missing data points."," Such data will be set to 0.")
+    if(partial_data>0) vcat(1,partial_data," partial data points."," Such data will be set to mean value of reported data.")
     
     # Replace X in colnames with y to make sure as.magpie recognizes this column as temporal dimension later
     colnames(data) <- gsub(pattern = "X",replacement = "y",x = colnames(data))
